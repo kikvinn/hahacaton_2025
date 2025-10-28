@@ -17,6 +17,7 @@ dependencies = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+indent-width = 4
 
 [tool.ruff.lint]
 select = [
