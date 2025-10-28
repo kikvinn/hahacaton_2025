@@ -1,0 +1,32 @@
+# Временные файлы
+*.tmp
+*.log
+__pycache__
+.pytest_cache
+.ruff_cache
+
+# Виртуальные окружения
+venv/
+.venv/
+.env
+# если не хочешь копировать секреты
+
+# Базы данных и локальные данные
+database/
+*.sqlite
+*.db
+
+# Статика (если монтируем при запуске)
+
+
+# Файлы IDE
+.vscode/
+.idea/
+
+# Docker-related
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Тесты
+logs/

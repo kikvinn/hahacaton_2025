@@ -7,9 +7,9 @@ let formData = {
     email: '',
     password: '',
     role: '',
-    lastName: '',
-    firstName: '',
-    middleName: '',
+    surname: '',
+    name: '',
+    patronymic: '',
     birthDate: '',
     height: '',
     weight: '',
@@ -81,10 +81,10 @@ let formData = {
   function formatBirthDate(value) {
     // Убираем все нецифровые символы
     let cleanValue = value.replace(/\D/g, '');
-    
+
     // Ограничиваем длину до 8 символов (ддммгггг)
     cleanValue = cleanValue.substring(0, 8);
-    
+
     // Форматируем с точками
     let formattedValue = '';
     for (let i = 0; i < cleanValue.length; i++) {
@@ -93,7 +93,7 @@ let formData = {
       }
       formattedValue += cleanValue[i];
     }
-    
+
     return formattedValue;
   }
 
@@ -109,14 +109,14 @@ let formData = {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    
+
     // Создаем копию formData без служебных полей
     const { roleOpen, disciplineOpen, ...submitData } = formData;
-    
+
     console.log('Отправляемые данные:', submitData);
-    
+
     try {
-      const response = await fetch('http://localhost:8080/api/register', {
+      const response = await fetch('http://localhost:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -177,26 +177,26 @@ let formData = {
 
       <div class="form-group">
         <label>Фамилия *</label>
-        <input type="text" bind:value={formData.lastName} required />
+        <input type="text" bind:value={formData.surname} required />
       </div>
 
       <div class="form-group">
         <label>Имя *</label>
-        <input type="text" bind:value={formData.firstName} required />
+        <input type="text" bind:value={formData.name} required />
       </div>
 
       <div class="form-group">
         <label>Отчество</label>
-        <input type="text" bind:value={formData.middleName} />
+        <input type="text" bind:value={formData.patronymic} />
       </div>
 
       <div class="form-group">
         <label>Дата рождения</label>
-        <input 
-          type="text" 
-          bind:value={formData.birthDate} 
+        <input
+          type="text"
+          bind:value={formData.birthDate}
           on:input={handleBirthDateInput}
-          placeholder="дд.мм.гггг" 
+          placeholder="дд.мм.гггг"
           maxlength="10"
         />
       </div>
@@ -227,7 +227,7 @@ let formData = {
             </div>
           {/if}
         </div>
-        
+
         <!-- Отображение выбранных дисциплин -->
         {#if formData.disciplines.length > 0}
           <div class="selected-disciplines">
