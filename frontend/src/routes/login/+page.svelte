@@ -10,14 +10,15 @@
 
   async function handleSubmit(e) {
     e.preventDefault();
-    
+
     try {
-      const response = await fetch('http://localhost:8080/api/login', {
+      const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -25,7 +26,7 @@
         console.log('Успешный вход:', result);
         // Здесь можно сохранить токен и перенаправить пользователя
         // localStorage.setItem('token', result.token);
-        // window.location.href = '/dashboard';
+        window.location.href = '/';
       } else {
         console.error('Ошибка входа:', response.statusText);
         // Здесь можно показать сообщение об ошибке пользователю
@@ -43,20 +44,20 @@
     <form class="auth-form" on:submit={handleSubmit}>
       <div class="form-group">
         <label for="email">Email</label>
-        <input 
-          type="email" 
-          id="email" 
+        <input
+          type="email"
+          id="email"
           bind:value={formData.email}
-          required 
+          required
         />
       </div>
       <div class="form-group">
         <label for="password">Пароль</label>
-        <input 
-          type="password" 
-          id="password" 
+        <input
+          type="password"
+          id="password"
           bind:value={formData.password}
-          required 
+          required
         />
       </div>
       <button type="submit" class="btn btn-primary full-width">Войти</button>
