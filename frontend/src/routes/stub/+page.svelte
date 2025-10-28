@@ -1,25 +1,26 @@
 <svelte:head>
-  <title>Регистрация команд — Polyathlon</title>
+  <title>Мероприятия — Polyathlon</title>
 </svelte:head>
 
 <script>
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   
   // Переменные состояния
-  let teams = [];
+  let events = [];
   let isModalOpen = false;
   let isFormVisible = false;
-  let currentTeam = null;
+  let currentEvent = null;
   let loading = false;
   let error = null;
   
   // Данные для формы
-  let teamName = '';
-  let teamDiscipline = '';
-  let teamMembers = [''];
+  let eventName = '';
+  let eventDiscipline = '';
+  let eventDate = '';
   
-  // Список дисциплин (тот же, что и для мероприятий)
+  // Список дисциплин
   const disciplines = [
     'Эстафета',
     'Троеборье',
@@ -39,18 +40,18 @@
     'Бег'
   ];
   
-  // Загрузка команд при монтировании компонента
+  // Загрузка мероприятий при монтировании компонента
   onMount(() => {
-    loadTeams();
+    loadEvents();
   });
   
-  // Загрузка команд с сервера
-  async function loadTeams() {
+  // Загрузка мероприятий с сервера
+  async function loadEvents() {
     try {
       loading = true;
       error = null;
       
-      const response = await fetch('/api/teams', {
+      const response = await fetch('/api/events', {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -59,7 +60,7 @@
       });
       
       if (response.ok) {
-        teams = await response.json();
+        events = await response.json();
       } else if (response.status === 401) {
         // Пользователь не авторизован
         goto('/login');
@@ -67,66 +68,48 @@
         throw new Error(`Ошибка загрузки: ${response.status}`);
       }
     } catch (err) {
-      console.error('Ошибка загрузки команд:', err);
-      error = 'Не удалось загрузить команды. Попробуйте обновить страницу.';
+      console.error('Ошибка загрузки мероприятий:', err);
+      error = 'Не удалось загрузить мероприятия. Попробуйте обновить страницу.';
     } finally {
       loading = false;
     }
   }
   
-  // Открытие модального окна для создания новой команды
+  // Открытие модального окна для создания нового мероприятия
   function openCreateModal() {
     isModalOpen = true;
     isFormVisible = true;
-    currentTeam = null;
+    currentEvent = null;
     
     // Сброс формы
-    teamName = '';
-    teamDiscipline = '';
-    teamMembers = [''];
+    eventName = '';
+    eventDiscipline = '';
+    eventDate = '';
   }
   
   // Закрытие модального окна
   function closeModal() {
     isModalOpen = false;
     isFormVisible = false;
-    currentTeam = null;
+    currentEvent = null;
     error = null;
   }
   
-  // Добавление поля для нового участника
-  function addMemberField() {
-    teamMembers = [...teamMembers, ''];
-  }
-  
-  // Удаление поля участника
-  function removeMemberField(index) {
-    if (teamMembers.length > 1) {
-      teamMembers = teamMembers.filter((_, i) => i !== index);
-    }
-  }
-  
-  // Обновление значения поля участника
-  function updateMember(index, value) {
-    teamMembers[index] = value;
-  }
-  
-  // Сохранение команды
-  async function saveTeam() {
+  // Сохранение мероприятия
+  async function saveEvent() {
     // Проверка валидности формы
-    if (!teamName.trim()) {
-      error = 'Пожалуйста, введите название команды';
+    if (!eventName.trim()) {
+      error = 'Пожалуйста, введите название мероприятия';
       return;
     }
     
-    if (!teamDiscipline) {
+    if (!eventDiscipline) {
       error = 'Пожалуйста, выберите дисциплину';
       return;
     }
     
-    const validMembers = teamMembers.filter(member => member.trim() !== '');
-    if (validMembers.length === 0) {
-      error = 'Пожалуйста, добавьте хотя бы одного участника';
+    if (!eventDate) {
+      error = 'Пожалуйста, выберите дату проведения';
       return;
     }
     
@@ -134,43 +117,37 @@
       loading = true;
       error = null;
       
-      const teamData = {
-        name: teamName.trim(),
-        discipline: teamDiscipline,
-        members: validMembers.map((member, index) => ({
-          fullName: member.trim(),
-          order: index + 1
-        }))
+      const eventData = {
+        name: eventName.trim(),
+        discipline: eventDiscipline,
+        date: eventDate
       };
       
-      const response = await fetch('/api/teams', {
+      const response = await fetch('/api/events', {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(teamData)
+        body: JSON.stringify(eventData)
       });
       
       if (response.ok) {
-        const newTeam = await response.json();
-        teams = [...teams, newTeam];
+        const newEvent = await response.json();
+        events = [...events, newEvent];
         closeModal();
       } else if (response.status === 401) {
         // Пользователь не авторизован
         goto('/login');
       } else if (response.status === 403) {
-        error = 'У вас нет прав для создания команд';
-      } else if (response.status === 400) {
-        const errorData = await response.json();
-        error = errorData.message || 'Некорректные данные для создания команды';
+        error = 'У вас нет прав для создания мероприятий';
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Ошибка при создании команды');
+        throw new Error(errorData.message || 'Ошибка при создании мероприятия');
       }
     } catch (err) {
-      console.error('Ошибка сохранения команды:', err);
-      error = err.message || 'Не удалось создать команду. Попробуйте позже.';
+      console.error('Ошибка сохранения мероприятия:', err);
+      error = err.message || 'Не удалось создать мероприятие. Попробуйте позже.';
     } finally {
       loading = false;
     }
@@ -182,58 +159,47 @@
       closeModal();
     }
   }
-  
-  // Форматирование списка участников для отображения
-  function formatMembersList(members) {
-    if (!members || members.length === 0) return 'Нет участников';
-    if (members.length === 1) return members[0].fullName || members[0];
-    return `${members.length} участников`;
-  }
 </script>
 
-<div class="teams-page">
-  <div class="teams-header">
-    <h1>Регистрация команд</h1>
+<div class="events-page">
+  <div class="events-header">
+    <h1>Мероприятия</h1>
     <button class="btn-new" on:click={openCreateModal} disabled={loading}>
       {loading ? '...' : 'NEW'}
     </button>
   </div>
   
-  {#if loading && teams.length === 0}
+  {#if loading && events.length === 0}
     <div class="loading">
-      <p>Загрузка команд...</p>
+      <p>Загрузка мероприятий...</p>
     </div>
-  {:else if error && teams.length === 0}
+  {:else if error && events.length === 0}
     <div class="error-message">
       <p>{error}</p>
-      <button class="btn-primary" on:click={loadTeams}>Повторить попытку</button>
+      <button class="btn-primary" on:click={loadEvents}>Повторить попытку</button>
     </div>
   {:else}
-    <div class="teams-grid">
-      {#if teams.length > 0}
-        {#each teams as team}
-          <div class="team-card">
-            <div class="team-card-header">
-              <h3 class="team-title">{team.name}</h3>
-              <span class="team-discipline-badge">
-                {team.discipline}
+    <div class="events-grid">
+      {#if events.length > 0}
+        {#each events as event}
+          <div class="event-card">
+            <div class="event-card-header">
+              <h3 class="event-title">{event.name}</h3>
+              <span class="event-status {event.status?.toLowerCase().replace(' ', '-') || 'запланировано'}">
+                {event.status || 'Запланировано'}
               </span>
             </div>
-            <div class="team-details">
-              <p class="team-members-count">
-                <strong>Участники:</strong> {formatMembersList(team.members)}
-              </p>
-              <p class="team-created">
-                <strong>Создана:</strong> {new Date(team.createdAt).toLocaleDateString('ru-RU')}
-              </p>
+            <div class="event-details">
+              <p class="event-discipline"><strong>Дисциплина:</strong> {event.discipline}</p>
+              <p class="event-date"><strong>Дата:</strong> {event.date}</p>
             </div>
           </div>
         {/each}
       {:else}
-        <div class="no-teams">
-          <p>Пока нет зарегистрированных команд</p>
+        <div class="no-events">
+          <p>Пока нет запланированных мероприятий</p>
           <button class="btn-primary" on:click={openCreateModal} disabled={loading}>
-            Создать первую команду
+            Создать первое мероприятие
           </button>
         </div>
       {/if}
@@ -241,12 +207,12 @@
   {/if}
 </div>
 
-<!-- Модальное окно для создания команды -->
+<!-- Модальное окно для создания мероприятия -->
 {#if isModalOpen}
   <div class="modal-backdrop" on:click={handleBackdropClick}>
     <div class="modal-content">
       <div class="modal-header">
-        <h2>{currentTeam ? 'Редактировать команду' : 'Создать новую команду'}</h2>
+        <h2>{currentEvent ? 'Редактировать мероприятие' : 'Создать новое мероприятие'}</h2>
         <button class="modal-close" on:click={closeModal} disabled={loading}>×</button>
       </div>
       
@@ -258,24 +224,24 @@
             </div>
           {/if}
           
-          <form class="team-form" on:submit|preventDefault={saveTeam}>
+          <form class="event-form" on:submit|preventDefault={saveEvent}>
             <div class="form-group">
-              <label for="teamName">Название команды:</label>
+              <label for="eventName">Название мероприятия:</label>
               <input 
                 type="text" 
-                id="teamName" 
-                bind:value={teamName}
-                placeholder="Введите название команды"
+                id="eventName" 
+                bind:value={eventName}
+                placeholder="Введите название мероприятия"
                 required
                 disabled={loading}
               />
             </div>
             
             <div class="form-group">
-              <label for="teamDiscipline">Дисциплина:</label>
+              <label for="eventDiscipline">Дисциплина:</label>
               <select 
-                id="teamDiscipline" 
-                bind:value={teamDiscipline}
+                id="eventDiscipline" 
+                bind:value={eventDiscipline}
                 required
                 disabled={loading}
               >
@@ -287,37 +253,14 @@
             </div>
             
             <div class="form-group">
-              <label>Участники команды:</label>
-              <div class="members-list">
-                {#each teamMembers as member, i}
-                  <div class="member-input-row">
-                    <input 
-                      type="text" 
-                      placeholder={`ФИО участника ${i + 1}`}
-                      bind:value={teamMembers[i]}
-                      disabled={loading}
-                    />
-                    {#if teamMembers.length > 1}
-                      <button 
-                        type="button" 
-                        class="btn-remove-member"
-                        on:click={() => removeMemberField(i)}
-                        disabled={loading}
-                      >
-                        ×
-                      </button>
-                    {/if}
-                  </div>
-                {/each}
-                <button 
-                  type="button" 
-                  class="btn-add-member"
-                  on:click={addMemberField}
-                  disabled={loading}
-                >
-                  + Добавить участника
-                </button>
-              </div>
+              <label for="eventDate">Дата проведения:</label>
+              <input 
+                type="date" 
+                id="eventDate" 
+                bind:value={eventDate}
+                required
+                disabled={loading}
+              />
             </div>
             
             <div class="form-actions">
@@ -345,21 +288,21 @@
 {/if}
 
 <style>
-  .teams-page {
+  .events-page {
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
     min-height: calc(100vh - 120px);
   }
   
-  .teams-header {
+  .events-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
   }
   
-  .teams-header h1 {
+  .events-header h1 {
     margin: 0;
     color: #333;
     font-size: 2rem;
@@ -392,13 +335,13 @@
     cursor: not-allowed;
   }
   
-  .teams-grid {
+  .events-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 1.5rem;
   }
   
-  .team-card {
+  .event-card {
     background: #fff;
     border-radius: 8px;
     padding: 1.5rem;
@@ -407,32 +350,26 @@
     border: 1px solid #e9ecef;
   }
   
-  .team-card:hover {
+  .event-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
   
-  .team-card-header {
+  .event-card-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 1rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
   
-  .team-title {
+  .event-title {
     margin: 0 0 0.5rem 0;
     color: #333;
     font-size: 1.25rem;
     line-height: 1.4;
-    flex: 1;
-    min-width: 0;
   }
   
-  .team-discipline-badge {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+  .event-status {
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -440,13 +377,36 @@
     white-space: nowrap;
   }
   
-  .team-details p {
+  .event-status.запланировано,
+  .event-status.запланирован {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  .event-status.регистрация-открыта {
+    background: #e8f5e9;
+    color: #388e3c;
+  }
+  
+  .event-status.идет-регистрация,
+  .event-status.идет {
+    background: #fff3e0;
+    color: #f57c00;
+  }
+  
+  .event-status.завершено,
+  .event-status.завершен {
+    background: #f5f5f5;
+    color: #666;
+  }
+  
+  .event-details p {
     margin: 0.5rem 0;
     color: #666;
     font-size: 0.95rem;
   }
   
-  .no-teams {
+  .no-events {
     grid-column: 1 / -1;
     text-align: center;
     padding: 3rem;
@@ -454,7 +414,7 @@
     border-radius: 8px;
   }
   
-  .no-teams p {
+  .no-events p {
     font-size: 1.2rem;
     color: #666;
     margin-bottom: 1.5rem;
@@ -498,7 +458,7 @@
     background: #fff;
     border-radius: 8px;
     width: 90%;
-    max-width: 600px;
+    max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -545,7 +505,7 @@
     padding: 1.5rem;
   }
   
-  .team-form {
+  .event-form {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -581,69 +541,6 @@
   .form-group select:disabled {
     background: #f5f5f5;
     cursor: not-allowed;
-  }
-  
-  .members-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .member-input-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-  
-  .member-input-row input {
-    flex: 1;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-  }
-  
-  .member-input-row input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-  }
-  
-  .btn-remove-member {
-    background: #ffebee;
-    color: #c62828;
-    border: 1px solid #ffcdd2;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-  }
-  
-  .btn-remove-member:hover:not(:disabled) {
-    background: #ffcdd2;
-  }
-  
-  .btn-add-member {
-    background: transparent;
-    color: #667eea;
-    border: 1px dashed #667eea;
-    border-radius: 4px;
-    padding: 0.75rem;
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-  }
-  
-  .btn-add-member:hover:not(:disabled) {
-    background: #f0f4ff;
   }
   
   .form-actions {
@@ -689,21 +586,21 @@
   }
   
   @media (max-width: 768px) {
-    .teams-page {
+    .events-page {
       padding: 1rem;
     }
     
-    .teams-header {
+    .events-header {
       flex-direction: column;
       gap: 1rem;
       text-align: center;
     }
     
-    .teams-grid {
+    .events-grid {
       grid-template-columns: 1fr;
     }
     
-    .team-card-header {
+    .event-card-header {
       flex-direction: column;
       gap: 0.5rem;
       align-items: flex-start;
@@ -716,15 +613,6 @@
     .modal-content {
       width: 95%;
       margin: 1rem;
-    }
-    
-    .member-input-row {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    
-    .btn-remove-member {
-      align-self: flex-end;
     }
   }
 </style>
