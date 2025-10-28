@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 
 class UserBase(BaseModel):
-    id: int
     name: str
     surname: str
     patronymic: str | None
+    role: str | None
 
 
 class UserCreate(UserBase):
@@ -15,4 +15,7 @@ class UserCreate(UserBase):
     password: str
     birth_date: date | None
     sex: str | None
-    role: str | None
+
+
+class UserPublic(UserBase):
+    id: int
