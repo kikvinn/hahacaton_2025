@@ -9,3 +9,4 @@ class Discipline(Base):
     exercise_type: Mapped[str]  
     exercise: Mapped[str]       
     is_team: Mapped[bool] = mapped_column(default=False)
+    events: Mapped[List["Event"]] = relationship("Event", back_populates="discipline")

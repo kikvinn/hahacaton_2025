@@ -1,30 +1,24 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import select, and_, or_, func
 from typing import List, Optional
 from datetime import datetime
 from . import models, schemas
 
 class EventService:
+
     @staticmethod
     def get_event(db: Session, event_id: int) -> Optional[models.Event]:
-        return db.query(models.Event).filter(models.Event.id == event_id).first()
+        return db.get(models.Event, event_id)
 
     @staticmethod
     def get_events(
         db: Session, 
         skip: int = 0, 
-        limit: int = 100,
-        is_active: bool = True,
-        is_public: bool = True
+        limit: int = 100
     ) -> List[models.Event]:
-        query = db.query(models.Event)
-        
-        if is_active:
-            query = query.filter(models.Event.is_active == True)
-        if is_public:
-            query = query.filter(models.Event.is_public == True)
-            
-        return query.offset(skip).limit(limit).all()
+        stmt = select(models.Event).offset(skip).limit(limit)
+        result = db.execute(stmt)
+        return list(result.scalars().all())
 
     @staticmethod
     def get_events_cards(
@@ -32,62 +26,50 @@ class EventService:
         skip: int = 0,
         limit: int = 12
     ) -> List[schemas.EventCardResponse]:
-        from auth.models import User
-        from references.models import Discipline
-        
-        events = db.query(
-            models.Event,
-            User.full_name,
-            Discipline.name
-        ).join(
-            User, models.Event.organizer_id == User.id
-        ).outerjoin(
-            Discipline, models.Event.discipline_id == Discipline.id
-        ).filter(
-            models.Event.is_active == True,
-            models.Event.is_public == True,
-            models.Event.start_date >= datetime.utcnow()
-        ).order_by(
-            models.Event.start_date
-        ).offset(skip).limit(limit).all()
-        
+        stmt = (
+            select(
+                models.Event,
+                models.User.name.label("organizer_name"),
+                models.Discipline.title.label("discipline_name")
+            )
+            .join(models.User, models.Event.user_id == models.User.id)
+            .outerjoin(models.Discipline, models.Event.discipline_id == models.Discipline.id)
+            .order_by(models.Event.date)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = db.execute(stmt).all()
+
         return [
             schemas.EventCardResponse(
                 id=event.id,
                 title=event.title,
                 short_description=event.short_description,
-                start_date=event.start_date,
-                end_date=event.end_date,
+                start_date=event.date,
+                end_date=event.date,
                 location=event.location,
-                current_participants=event.current_participants,
-                max_participants=event.max_participants,
-                image_url=event.image_url,
-                organizer_name=full_name,
+                current_participants=event.current_participants if hasattr(event, 'current_participants') else 0,
+                max_participants=event.max_participants if hasattr(event, 'max_participants') else None,
+                image_url=event.image_url if hasattr(event, 'image_url') else None,
+                organizer_name=organizer_name,
                 discipline_name=discipline_name
             )
-            for event, full_name, discipline_name in events
+            for event, organizer_name, discipline_name in result
         ]
 
     @staticmethod
     def get_user_events(db: Session, user_id: int) -> List[models.Event]:
-        return db.query(models.Event).filter(
-            models.Event.organizer_id == user_id
-        ).order_by(models.Event.created_at.desc()).all()
+        stmt = select(models.Event).where(models.Event.user_id == user_id)
+        result = db.execute(stmt)
+        return list(result.scalars().all())
 
     @staticmethod
-    def create_event(db: Session, event: schemas.EventCreate, organizer_id: int) -> models.Event:
+    def create_event(db: Session, event: schemas.EventCreate, user_id: int) -> models.Event:
         db_event = models.Event(
-            title=event.title,
-            description=event.description,
-            short_description=event.short_description,
-            start_date=event.start_date,
-            end_date=event.end_date,
-            location=event.location,
-            max_participants=event.max_participants,
-            is_public=event.is_public,
-            image_url=event.image_url,
-            organizer_id=organizer_id,
-            discipline_id=event.discipline_id
+            user_id=user_id,
+            discipline_id=event.discipline_id,
+            date=event.date
         )
         db.add(db_event)
         db.commit()
@@ -96,131 +78,71 @@ class EventService:
 
     @staticmethod
     def update_event(db: Session, event_id: int, event_update: schemas.EventUpdate, user_id: int) -> Optional[models.Event]:
-        db_event = db.query(models.Event).filter(
+        stmt = select(models.Event).where(
             models.Event.id == event_id,
-            models.Event.organizer_id == user_id
-        ).first()
-        
-        if db_event:
-            update_data = event_update.dict(exclude_unset=True)
+            models.Event.user_id == user_id
+        )
+        result = db.execute(stmt).scalars().first()
+
+        if result:
+            update_data = event_update.model_dump(exclude_unset=True)
             for field, value in update_data.items():
-                setattr(db_event, field, value)
-            db_event.updated_at = datetime.utcnow()
+                setattr(result, field, value)
             db.commit()
-            db.refresh(db_event)
-        return db_event
+            db.refresh(result)
+        return result
 
     @staticmethod
     def delete_event(db: Session, event_id: int, user_id: int) -> bool:
-        db_event = db.query(models.Event).filter(
+        stmt = select(models.Event).where(
             models.Event.id == event_id,
-            models.Event.organizer_id == user_id
-        ).first()
-        
-        if db_event:
-            # Вместо удаления деактивируем событие
-            db_event.is_active = False
-            db.commit()
-            return True
-        return False
-
-    @staticmethod
-    def register_participant(db: Session, participant: schemas.EventParticipantCreate, event_id: int) -> Optional[models.EventParticipant]:
-        # Проверяем существование события
-        event = db.query(models.Event).filter(models.Event.id == event_id).first()
-        if not event or not event.is_active:
-            return None
-        
-        # Проверяем наличие мест
-        if event.max_participants and event.current_participants >= event.max_participants:
-            return None
-        
-        # Проверяем, не зарегистрирован ли уже участник
-        existing_participant = db.query(models.EventParticipant).filter(
-            models.EventParticipant.event_id == event_id,
-            models.EventParticipant.athlete_id == participant.athlete_id
-        ).first()
-        
-        if existing_participant:
-            return None
-        
-        db_participant = models.EventParticipant(
-            event_id=event_id,
-            athlete_id=participant.athlete_id,
-            team_id=participant.team_id
+            models.Event.user_id == user_id
         )
-        
-        db.add(db_participant)
-        
-        # Обновляем счетчик участников
-        event.current_participants += 1
-        db.commit()
-        db.refresh(db_participant)
-        return db_participant
+        result = db.execute(stmt).scalars().first()
 
-    @staticmethod
-    def get_event_participants(db: Session, event_id: int) -> List[models.EventParticipant]:
-        return db.query(models.EventParticipant).filter(
-            models.EventParticipant.event_id == event_id
-        ).all()
-
-    @staticmethod
-    def remove_participant(db: Session, event_id: int, athlete_id: int) -> bool:
-        db_participant = db.query(models.EventParticipant).filter(
-            models.EventParticipant.event_id == event_id,
-            models.EventParticipant.athlete_id == athlete_id
-        ).first()
-        
-        if db_participant:
-            event = db.query(models.Event).filter(models.Event.id == event_id).first()
-            if event:
-                event.current_participants -= 1
-            db.delete(db_participant)
+        if result:
+            db.delete(result)
             db.commit()
             return True
         return False
 
     @staticmethod
     def search_events(db: Session, query: str, discipline_id: Optional[int] = None) -> List[schemas.EventCardResponse]:
-        from auth.models import User
-        from references.models import Discipline
-        
-        search_query = db.query(
-            models.Event,
-            User.full_name,
-            Discipline.name
-        ).join(
-            User, models.Event.organizer_id == User.id
-        ).outerjoin(
-            Discipline, models.Event.discipline_id == Discipline.id
-        ).filter(
-            models.Event.is_active == True,
-            models.Event.is_public == True,
-            or_(
-                models.Event.title.ilike(f"%{query}%"),
-                models.Event.description.ilike(f"%{query}%"),
-                models.Event.location.ilike(f"%{query}%")
+        stmt = (
+            select(
+                models.Event,
+                models.User.name.label("organizer_name"),
+                models.Discipline.title.label("discipline_name")
+            )
+            .join(models.User, models.Event.user_id == models.User.id)
+            .outerjoin(models.Discipline, models.Event.discipline_id == models.Discipline.id)
+            .filter(
+                or_(
+                    models.Event.title.ilike(f"%{query}%") if hasattr(models.Event, 'title') else False,
+                    models.Event.description.ilike(f"%{query}%") if hasattr(models.Event, 'description') else False,
+                    models.Event.location.ilike(f"%{query}%") if hasattr(models.Event, 'location') else False
+                )
             )
         )
-        
+
         if discipline_id:
-            search_query = search_query.filter(models.Event.discipline_id == discipline_id)
-            
-        results = search_query.order_by(models.Event.start_date).all()
-        
+            stmt = stmt.filter(models.Event.discipline_id == discipline_id)
+
+        result = db.execute(stmt).all()
+
         return [
             schemas.EventCardResponse(
                 id=event.id,
                 title=event.title,
                 short_description=event.short_description,
-                start_date=event.start_date,
-                end_date=event.end_date,
+                start_date=event.date,
+                end_date=event.date,
                 location=event.location,
-                current_participants=event.current_participants,
-                max_participants=event.max_participants,
-                image_url=event.image_url,
-                organizer_name=full_name,
+                current_participants=event.current_participants if hasattr(event, 'current_participants') else 0,
+                max_participants=event.max_participants if hasattr(event, 'max_participants') else None,
+                image_url=event.image_url if hasattr(event, 'image_url') else None,
+                organizer_name=organizer_name,
                 discipline_name=discipline_name
             )
-            for event, full_name, discipline_name in results
+            for event, organizer_name, discipline_name in result
         ]
