@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 session_logger = logging.getLogger("database.session")
 
 
-engine = create_engine()
+engine = create_engine("sqlite:///../database.db")
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -33,4 +33,4 @@ def get_session() -> Session:
         raise
 
 
-SessionDEP = Annotated[Session, Depends(get_session)]
+SessionDep = Annotated[Session, Depends(get_session)]
