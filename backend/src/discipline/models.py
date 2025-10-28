@@ -8,6 +8,7 @@ class Discipline(Base):
     __tablename__ = "disciplines"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    exercise_type: Mapped[str]
-    exercise: Mapped[str]
+    exercise_type: Mapped[str]  
+    exercise: Mapped[str]       
     is_team: Mapped[bool] = mapped_column(default=False)
+    events: Mapped[List["Event"]] = relationship("Event", back_populates="discipline")

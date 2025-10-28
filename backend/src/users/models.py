@@ -21,3 +21,4 @@ class User(Base):
 
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
+    events: Mapped[List["Event"]] = relationship("Event", back_populates="user")
