@@ -2,6 +2,10 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from src.roles.models import Roles
+from src.teams.models import Team
+from src.users.models import User
+
 from .session import Base, engine
 
 db_logger = logging.getLogger("database")

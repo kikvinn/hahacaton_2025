@@ -30,7 +30,7 @@ class AuthService:
 
     @staticmethod
     def get_user_by_email(db: Session, email: str) -> User | None:
-        return db.query(User).filter(User.email == email).first()
+        return db.query(User).filter(User.email == email).one_or_none()
 
     @staticmethod
     def create_user(db: Session, user: UserCreate) -> User:
