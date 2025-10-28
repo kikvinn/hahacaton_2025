@@ -1,46 +1,87 @@
-import easyocr
+
+import base64
+import requests
+import json
+import pandas as pd
 import re
 
-# Инициализируем OCR для русского языка
-reader = easyocr.Reader(['ru'])
+OPENROUTER_API_KEY = "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"
 
-def ocr_image(image_path: str):
-    results = reader.readtext(image_path)
-    return [(res[1], res[2]) for res in results]  # текст + уверенность
+def analyze_table_image_with_openrouter(image_path: str) -> pd.DataFrame:
+    print("[+] Подготовка запроса к OpenRouter...")
 
-def parse_result(ocr_list):
-    text = " ".join([t[0] for t in ocr_list])
+    # 1. Кодируем изображение в Base64
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
 
-    name_match = re.search(r"(?:Фамилия И\.О\.|Имя)[:\s]*([А-Я][а-яё]+\s+[А-Я]\.\s*[А-Я]\.)", text)
-    name = name_match.group(1).strip() if name_match else None
+    # 2. Формируем запрос
+    url = "https://openrouter.ai/api/v1/chat/completions"
 
-    exercise_match = re.search(r"(?:Упражнение)[:\s]*([а-яА-ЯёЁ\s\d\-()]+)", text)
-    exercise = exercise_match.group(1).strip() if exercise_match else None
-
-    result_match = re.search(r"(?:Результат)[:\s]*([\d.,]+)\s*(\w+)", text)
-    result_value = result_match.group(1) if result_match else None
-    unit = result_match.group(2) if result_match else None
-
-    return {
-        "athlete": name,
-        "exercise": exercise,
-        "result": float(result_value) if result_value else None,
-        "unit": unit
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Проанализируй эту таблицу результатов соревнований. "
+                            "Для каждого участника извлеки следующие поля:\n"
+                            "- ФИО (полное)\n"
+                            "- Возраст (число)\n"
+                            "- Пол (М/Ж)\n"
+                            "- Вид спорта\n"
+                            "- Дисциплина\n"
+                            "- Результат (число)\n"
+                            "- Единица измерения (секунды, метры и т.д.)\n"
+                            "- Дата проведения (формат DD.MM.YYYY)\n"
+                            "Верни строго массив JSON-объектов между ```json и ```, без пояснений и текста вне JSON. "
+                            "Например: ```json [...] ```"
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{encoded_image}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "temperature": 0.1,
+        "max_tokens": 10000
     }
 
-# Путь к твоему фото (измени под себя):
-image_path = "C:/Users/Admin/Desktop/testt.png"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "HTTP-Referer": "http://localhost:8000",
+        "X-Title": "TableParser"
+    }
 
-# Запуск теста
+    print("[+] Отправка запроса в OpenRouter...")
+    response = requests.post(url, json=payload, headers=headers)
+
+    try:
+        result = response.json() # Преобразование ответа в JSON <- ЗДЕСЬ
+        content = result["choices"][0]["message"]["content"]
+
+        #  Извлечение JSON из блока ```json ... ```
+        match = re.search(r"```json\s*(\[[\s\S]*?\])\s*```", content)
+        if match:
+            json_str = match.group(1)
+            parsed_data = json.loads(json_str)
+            df = pd.DataFrame(parsed_data)
+            print("[+] Данные успешно структурированы!")
+            return df
+        else:
+            raise ValueError("Не удалось найти блок JSON в ответе модели.")
+    except Exception as e:
+        print(f"[!] Ошибка при парсинге ответа: {e}")
+        print("Ответ модели:", response.text)
+        return pd.DataFrame()
+
 if __name__ == "__main__":
-    print(" Распознаём...")
-    ocr_results = ocr_image(image_path)
-    print("Результат OCR:")
-    for line in ocr_results:
-        print(line)
-
-    print("\n Парсим результат...")
-    parsed = parse_result(ocr_results)
-    print("Распарсенные данные:")
-    for k, v in parsed.items():
-        print(f"{k}: {v}")
+    image_path = "testt.jpg"  #ПУТЬ_К_ИЗОБРАЖЕНИЮ по запросу
+    structured_df = analyze_table_image_with_openrouter(image_path)
+    print(structured_df)
