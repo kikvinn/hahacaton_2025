@@ -1,6 +1,8 @@
 from sqlalchemy import Column
-from backend.src.database.session import Base
 from sqlalchemy.orm import Mapped, mapped_column
+
+from src.database.session import Base
+
 
 class Discipline(Base):
     __tablename__ = "disciplines"

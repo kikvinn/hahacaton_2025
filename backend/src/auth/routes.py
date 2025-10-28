@@ -34,8 +34,6 @@ def login(response: Response, user_data: UserLogin, db: SessionDep):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password"
         )
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
     # Create tokens
     access_token = AuthService.create_access_token(data={"sub": user.email, "user_id": user.id})

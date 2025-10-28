@@ -14,7 +14,7 @@ class User(Base):
     surname: Mapped[str]
     patronymic: Mapped[str | None]
     email: Mapped[str] = mapped_column(unique=True)
-    hashed_password: Mapped[str]
+    password: Mapped[str]
 
     birth_date: Mapped[date | None] = mapped_column(Date)
     sex: Mapped[str | None]
