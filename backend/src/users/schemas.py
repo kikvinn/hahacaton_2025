@@ -7,7 +7,7 @@ class UserBase(BaseModel):
     name: str
     surname: str
     patronymic: str | None
-    role: str | None
+    # role: str | None
 
 
 class UserCreate(UserBase):

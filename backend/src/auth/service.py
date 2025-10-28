@@ -35,14 +35,9 @@ class AuthService:
     @staticmethod
     def create_user(db: Session, user: UserCreate) -> User:
         try:
-            hashed_password = AuthService.get_password_hash(user.password)
-            db_user = User(
-                email=user.email,
-                hashed_password=hashed_password,
-                full_name=user.full_name,
-                is_active=user.is_active,
-                role=user.role,
-            )
+            print(user.password)
+            user.password = AuthService.get_password_hash(user.password)
+            db_user = User(**user.model_dump())
             db.add(db_user)
             db.commit()
             db.refresh(db_user)
@@ -57,7 +52,7 @@ class AuthService:
         user = AuthService.get_user_by_email(db, email)
         if not user:
             return None
-        if not AuthService.verify_password(password, user.hashed_password):
+        if not AuthService.verify_password(password, user.password):
             return None
         return user
 
