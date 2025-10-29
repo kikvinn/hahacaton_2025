@@ -1,25 +1,17 @@
-# frontend/Dockerfile
-FROM oven/bun:1 AS base
+# Этап сборки
+FROM node:22-alpine AS builder
+
 WORKDIR /app
 
-# Копируем зависимости
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY package*.json ./
 
-# Копируем исходники
+RUN npm ci
+
 COPY . .
-
-# Собираем приложение
-RUN bun run build
-
-# Финальный образ (легковесный)
-FROM oven/bun:1 AS runner
-WORKDIR /app
-
-# Устанавливаем serve или используем адаптер node
-RUN bun add -g serve
-
-COPY --from=base /app/build ./build
+RUN npm run build
+RUN npm install -g serve
+RUN npm run build
 
 EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+
+CMD ["serve", "-s", "build"]

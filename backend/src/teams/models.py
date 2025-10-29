@@ -2,7 +2,6 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database.session import Base
-from src.users.models import User
 
 
 class Team(Base):

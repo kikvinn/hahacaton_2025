@@ -5,7 +5,6 @@ from sqlalchemy import Column, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database.session import Base
-from src.teams.models import Team
 
 
 class User(Base):
@@ -21,6 +20,6 @@ class User(Base):
     sex: Mapped[str | None]
 
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
-    team: Mapped[Team] = relationship(back_populates="users")
+    team: Mapped["Team"] = relationship(back_populates="users")
     role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
     # events: Mapped[list[Event]] = relationship("Event", back_populates="user")
